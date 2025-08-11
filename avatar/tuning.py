@@ -19,6 +19,11 @@ class Tuning:
     return_to_center_s: float = 0.6
     emotion_hz: float = 2.0
     emotion_smooth_alpha: float = 0.35
+    # Thresholds for selecting valence/arousal-specific assets
+    valence_high_threshold: float = 0.5
+    valence_low_threshold: float = -0.5
+    arousal_high_threshold: float = 0.5
+    arousal_low_threshold: float = -0.5
     base_pos_x: float = 0.5
     base_pos_y: float = 0.55
     mouth_offset_y_scale: float = 0.24
