@@ -1,0 +1,51 @@
+{
+  "camera": 0,
+  "assets": {
+    "eyes": "eyes",
+    "mouths": "mouths"
+  },
+  "window": {
+    "size": "auto",
+    "mirror": true
+  },
+  "backends": {
+    "detector": "insightface",
+    "emotion": "emotieff"
+  },
+  "asr": {
+    "engine": "whisper",
+    "enabled": true,
+    "whisper_model": "large-v3",
+    "device": "auto"
+  },
+  "plots": {
+    "enabled": true,
+    "hz": 10.0,
+    "seconds": 180
+  },
+  "logging": {
+    "debug": false,
+    "trace": false
+  },
+  "tuning": {
+    "min_face_conf": 0.6,
+    "eyes_max_w_scale": 0.3333333333333333,
+    "mouth_max_h_scale": 0.6,
+    "mouth_max_y_scale": 0.16,
+    "game_window_xy_dim": null,
+    "gaze_pd_kp": 0.22,
+    "gaze_max_step_px": 14.0,
+    "gaze_limit_px_left": 40,
+    "gaze_limit_px_right": 40,
+    "gaze_limit_px_up": 28,
+    "gaze_limit_px_down": 32,
+    "face_hold_s": 1.0,
+    "return_to_center_s": 0.6,
+    "emotion_hz": 2.0,
+    "emotion_smooth_alpha": 0.35,
+    "base_pos_x": 0.5,
+    "base_pos_y": 0.55,
+    "mouth_offset_y_scale": 0.24,
+    "transcript_max_words": 5
+  }
+}
