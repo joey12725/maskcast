@@ -46,6 +46,7 @@
     "base_pos_x": 0.5,
     "base_pos_y": 0.55,
     "mouth_offset_y_scale": 0.24,
-    "transcript_max_words": 5
+    "transcript_max_words": 5,
+    "keyword_flash_s": 2.0
   }
 }

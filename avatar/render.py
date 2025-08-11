@@ -188,6 +188,13 @@ class Renderer:
 
             # Draw eyes
             label = canon(self.state.get("emotion_label", "neutral"))
+            flash = self.state.get("flash_label")
+            flash_until = float(self.state.get("flash_until", 0.0))
+            if flash and now() <= flash_until:
+                label = flash
+            elif flash and now() > flash_until:
+                self.state["flash_label"] = None
+                self.state["flash_until"] = 0.0
             eyes = self.eyes.get(label) or self.eyes.get("neutral")
             cx = self.base_center[0] + int(round(self._gaze_px[0]))
             cy = self.base_center[1] + int(round(self._gaze_px[1]))
