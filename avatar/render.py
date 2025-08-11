@@ -97,6 +97,19 @@ class Renderer:
         # Clamp overall energy to keep motion reasonable
         return max(0.2, min(1.5, EMOTION_TO_ENERGY.get(canon(label), 0.6)))
 
+    def _get_asset(self, assets: Dict[str, "pygame.Surface"], label: str):
+        """Return asset matching current valence/arousal if available."""
+        v = float(self.state.get("valence", 0.0))
+        a = float(self.state.get("arousal", 0.0))
+        v_hi = getattr(self.tuning, "valence_high_threshold", 0.5)
+        v_lo = getattr(self.tuning, "valence_low_threshold", -0.5)
+        a_hi = getattr(self.tuning, "arousal_high_threshold", 0.5)
+        a_lo = getattr(self.tuning, "arousal_low_threshold", -0.5)
+        v_code = "+" if v >= v_hi else "-" if v <= v_lo else "0"
+        a_code = "+" if a >= a_hi else "-" if a <= a_lo else "0"
+        name = f"{label}_v{v_code}_a{a_code}"
+        return assets.get(name) or assets.get(label) or assets.get("neutral")
+
     def _compute_target_gaze_px(self):
         # Raw measurements from tracker/state
         nx, ny = self.state.get("face_norm", (0.0, 0.0))
@@ -195,7 +208,7 @@ class Renderer:
             elif flash and now() > flash_until:
                 self.state["flash_label"] = None
                 self.state["flash_until"] = 0.0
-            eyes = self.eyes.get(label) or self.eyes.get("neutral")
+            eyes = self._get_asset(self.eyes, label)
             cx = self.base_center[0] + int(round(self._gaze_px[0]))
             cy = self.base_center[1] + int(round(self._gaze_px[1]))
             if eyes is not None:
@@ -205,7 +218,7 @@ class Renderer:
                 pygame.draw.circle(self.screen, (220, 220, 220), (cx + 30, cy), 18)  # type: ignore
 
             # Draw mouth
-            mouth = self.mouths.get(label) or self.mouths.get("neutral")
+            mouth = self._get_asset(self.mouths, label)
             mouth_cx = int(self.tuning.base_pos_x * self.window_w)
             mouth_cy = int((self.tuning.base_pos_y + self.tuning.mouth_offset_y_scale) * self.window_h)
             if mouth is not None:
