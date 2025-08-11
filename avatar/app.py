@@ -44,6 +44,8 @@ def run(config: Dict[str, Any]) -> None:
         "pos_latency_ms": 0.0,
         "frame_size": None,
         "last_face_ts": 0.0,
+        "flash_label": None,
+        "flash_until": 0.0,
     }
 
     # Which emotions do we have assets for?
@@ -111,7 +113,7 @@ def run(config: Dict[str, Any]) -> None:
             if plot_start_evt is not None:
                 plot_start_evt.wait(timeout=3.0)
 
-    reporter = Reporter(state, asr, log, q=plot_q, hz=float(config["plots"].get("hz", 10.0)))
+    reporter = Reporter(state, asr, log, tuning, q=plot_q, hz=float(config["plots"].get("hz", 10.0)), keywords=keywords)
     reporter.start()
 
     try:
