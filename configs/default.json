@@ -35,6 +35,7 @@
     "asset_black_threshold": 10,
     "asset_trim_margin_px": 0,
     "game_window_xy_dim": null,
+    "mask_output": false,
     "gaze_pd_kp": 0.22,
     "gaze_max_step_px": 14.0,
     "gaze_limit_px_left": 40,
