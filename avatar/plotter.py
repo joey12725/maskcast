@@ -23,7 +23,7 @@ def plotter_process(q, labels: List[str], seconds: int, hz: float, start_evt, st
     nx = _deque(maxlen=max_pts)
     ny = _deque(maxlen=max_pts)
     prob_hist: Dict[str, _deque] = {lb: _deque(maxlen=max_pts) for lb in labels}
-    txt = _deque(maxlen=2000)
+    txt: List[str] = []
 
     fig = plt.figure(figsize=(14, 8))
     gs = fig.add_gridspec(3, 3)
@@ -70,7 +70,10 @@ def plotter_process(q, labels: List[str], seconds: int, hz: float, start_evt, st
                 prob_hist[lb].append(float(probs.get(lb, 0.0)))
             text = m.get("text", "")
             if text:
-                txt.append(text)
+                if txt and text.startswith(txt[-1]):
+                    txt[-1] = text
+                elif not txt or text != txt[-1]:
+                    txt.append(text)
         return drained
 
     def update(_):
@@ -90,7 +93,7 @@ def plotter_process(q, labels: List[str], seconds: int, hz: float, start_evt, st
         ax_prob.set_xlim(max(0, len(xs)-max_pts), len(xs)+1)
         l_fx.set_data(xs, list(nx)); ax_fx.set_xlim(max(0, len(xs)-max_pts), len(xs)+1)
         l_fy.set_data(xs, list(ny)); ax_fy.set_xlim(max(0, len(xs)-max_pts), len(xs)+1)
-        ax_txt.clear(); ax_txt.axis('off'); ax_txt.text(0.0, 1.0, "\n".join(list(txt)[-10:]), va='top', fontsize=9)
+        ax_txt.clear(); ax_txt.axis('off'); ax_txt.text(0.0, 1.0, " ".join(txt), va='top', fontsize=9, wrap=True)
 
     anim = FuncAnimation(fig, update, interval=int(1000.0 / max(1.0, hz)), blit=False, cache_frame_data=False, repeat=True)
     _anim_ref = anim  # keep alive
