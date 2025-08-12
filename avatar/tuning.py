@@ -25,7 +25,7 @@ class Tuning:
     base_pos_y: float = 0.55
     mouth_offset_y_scale: float = 0.24
     transcript_max_words: int = 5
-    keyword_flash_s: float = 0.5
+    keyword_flash_s: float = 5
     asset_transition_s: float = 0.12
     gaze_deadzone_px = 0.75
     gaze_omega = 10         # higher = snappier

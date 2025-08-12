@@ -150,8 +150,8 @@ class Renderer:
         # arousal/valence selects the corresponding "+" asset. This allows
         # medium values (e.g. arousal=0.26) to still choose assets like
         # ``happy_v+_a+``.
-        v_code = "+" if v > 0 else "-" if v < 0 else "0"
-        a_code = "+" if a > 0 else "-" if a < 0 else "0"
+        v_code = "+" if v_level == "high" else "-" if v_level == "low" else "0"
+        a_code = "+" if a_level == "high" else "-" if a_level == "low" else "0"
         name = f"{label}_v{v_code}_a{a_code}"
 
         asset = assets.get(name)
@@ -163,7 +163,7 @@ class Renderer:
         # high arousal values still trigger an expression change.
         if asset is None and v_code == "0" and a_code != "0":
             fallback_v = "+" if v >= 0.0 else "-"
-            alt_name = f"{label}_v{fallback_v}_a{a_code}"
+            alt_name = f"{label}"
             asset = assets.get(alt_name)
             if asset is not None:
                 asset_name = alt_name
