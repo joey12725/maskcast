@@ -35,6 +35,15 @@ class Renderer:
             int(self.tuning.base_pos_y * self.window_h),
         )
 
+        # Asset transition state
+        self.asset_transition_s = getattr(self.tuning, "asset_transition_s", 0.12)
+        self._cur_eyes = None
+        self._prev_eyes = None
+        self._eyes_change_t = 0.0
+        self._cur_mouth = None
+        self._prev_mouth = None
+        self._mouth_change_t = 0.0
+
         # Gaze state (position & velocity in pixels)
         self._gaze_px = np.array([0.0, 0.0], dtype=np.float32)
         self._gaze_vel = np.zeros(2, dtype=np.float32)
@@ -186,6 +195,19 @@ class Renderer:
         rect = surf.get_rect(center=center)
         self.screen.blit(surf, rect)
 
+    def _blend_assets(self, prev, cur, t: float, center):
+        t = max(0.0, min(1.0, t))
+        if prev:
+            prev_alpha = prev.get_alpha()
+            prev.set_alpha(int(255 * (1.0 - t)))
+            self._draw_centered(prev, center)
+            prev.set_alpha(prev_alpha if prev_alpha is not None else 255)
+        if cur:
+            cur_alpha = cur.get_alpha()
+            cur.set_alpha(int(255 * t))
+            self._draw_centered(cur, center)
+            cur.set_alpha(cur_alpha if cur_alpha is not None else 255)
+
     def loop(self):
         running = True
         while running:
@@ -236,21 +258,50 @@ class Renderer:
             elif flash and now() > flash_until:
                 self.state["flash_label"] = None
                 self.state["flash_until"] = 0.0
-            eyes = self._get_asset(self.eyes, label)
+            new_eyes = self._get_asset(self.eyes, label)
+            if new_eyes is not self._cur_eyes:
+                self._prev_eyes = self._cur_eyes
+                self._cur_eyes = new_eyes
+                self._eyes_change_t = now()
             cx = self.base_center[0] + int(round(self._gaze_px[0]))
             cy = self.base_center[1] + int(round(self._gaze_px[1]))
-            if eyes is not None:
-                self._draw_centered(eyes, (cx, cy))
+            if self._prev_eyes is not None:
+                t = (now() - self._eyes_change_t) / max(1e-6, self.asset_transition_s)
+                if t < 1.0:
+                    self._blend_assets(self._prev_eyes, self._cur_eyes, t, (cx, cy))
+                else:
+                    self._prev_eyes = None
+                    if self._cur_eyes is not None:
+                        self._draw_centered(self._cur_eyes, (cx, cy))
+                    else:
+                        pygame.draw.circle(self.screen, (220, 220, 220), (cx - 30, cy), 18)  # type: ignore
+                        pygame.draw.circle(self.screen, (220, 220, 220), (cx + 30, cy), 18)  # type: ignore
             else:
-                pygame.draw.circle(self.screen, (220, 220, 220), (cx - 30, cy), 18)  # type: ignore
-                pygame.draw.circle(self.screen, (220, 220, 220), (cx + 30, cy), 18)  # type: ignore
+                if self._cur_eyes is not None:
+                    self._draw_centered(self._cur_eyes, (cx, cy))
+                else:
+                    pygame.draw.circle(self.screen, (220, 220, 220), (cx - 30, cy), 18)  # type: ignore
+                    pygame.draw.circle(self.screen, (220, 220, 220), (cx + 30, cy), 18)  # type: ignore
 
             # Draw mouth
-            mouth = self._get_asset(self.mouths, label)
+            new_mouth = self._get_asset(self.mouths, label)
+            if new_mouth is not self._cur_mouth:
+                self._prev_mouth = self._cur_mouth
+                self._cur_mouth = new_mouth
+                self._mouth_change_t = now()
             mouth_cx = int(self.tuning.base_pos_x * self.window_w)
             mouth_cy = int((self.tuning.base_pos_y + self.tuning.mouth_offset_y_scale) * self.window_h)
-            if mouth is not None:
-                self._draw_centered(mouth, (mouth_cx, mouth_cy))
+            if self._prev_mouth is not None:
+                t = (now() - self._mouth_change_t) / max(1e-6, self.asset_transition_s)
+                if t < 1.0:
+                    self._blend_assets(self._prev_mouth, self._cur_mouth, t, (mouth_cx, mouth_cy))
+                else:
+                    self._prev_mouth = None
+                    if self._cur_mouth is not None:
+                        self._draw_centered(self._cur_mouth, (mouth_cx, mouth_cy))
+            else:
+                if self._cur_mouth is not None:
+                    self._draw_centered(self._cur_mouth, (mouth_cx, mouth_cy))
 
             pygame.display.flip()  # type: ignore
 

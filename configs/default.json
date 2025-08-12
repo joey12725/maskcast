@@ -50,6 +50,7 @@
     "mouth_offset_y_scale": 0.24,
     "transcript_max_words": 5,
     "keyword_flash_s": 2.0,
+    "asset_transition_s": 0.12,
     "valence_high_threshold": 0.5,
     "valence_low_threshold": -0.5,
     "arousal_high_threshold": 0.5,
