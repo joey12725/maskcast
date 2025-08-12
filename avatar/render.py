@@ -142,20 +142,56 @@ class Renderer:
         v_lo = getattr(self.tuning, "valence_low_threshold", -0.5)
         a_hi = getattr(self.tuning, "arousal_high_threshold", 0.5)
         a_lo = getattr(self.tuning, "arousal_low_threshold", -0.5)
-        v_code = "+" if v >= v_hi else "-" if v <= v_lo else "0"
-        a_code = "+" if a >= a_hi else "-" if a <= a_lo else "0"
+        # Determine coarse classification for logging
+        v_level = "high" if v >= v_hi else "low" if v <= v_lo else "medium"
+        a_level = "high" if a >= a_hi else "low" if a <= a_lo else "medium"
+
+        # Asset codes depend only on the sign of the value so that any positive
+        # arousal/valence selects the corresponding "+" asset. This allows
+        # medium values (e.g. arousal=0.26) to still choose assets like
+        # ``happy_v+_a+``.
+        v_code = "+" if v > 0 else "-" if v < 0 else "0"
+        a_code = "+" if a > 0 else "-" if a < 0 else "0"
         name = f"{label}_v{v_code}_a{a_code}"
 
         asset = assets.get(name)
+        asset_name = name
+        fallback = False
 
         # Many asset sets omit v0 variants. If no exact match is found, fall back
         # to the closest available asset based on the sign of the valence so that
         # high arousal values still trigger an expression change.
         if asset is None and v_code == "0" and a_code != "0":
             fallback_v = "+" if v >= 0.0 else "-"
-            asset = assets.get(f"{label}_v{fallback_v}_a{a_code}")
+            alt_name = f"{label}_v{fallback_v}_a{a_code}"
+            asset = assets.get(alt_name)
+            if asset is not None:
+                asset_name = alt_name
+                fallback = True
 
-        return asset or assets.get(label) or assets.get("neutral")
+        if asset is None:
+            if label in assets:
+                asset = assets[label]
+                asset_name = label
+                fallback = True
+            elif "neutral" in assets:
+                asset = assets["neutral"]
+                asset_name = "neutral"
+                fallback = True
+            else:
+                asset_name = "<none>"
+
+        fb_msg = " (fallback)" if fallback else ""
+        self.log.info(
+            "Asset %s | valence=%s(%s) arousal=%s(%s)%s",
+            asset_name,
+            v_code,
+            v_level,
+            a_code,
+            a_level,
+            fb_msg,
+        )
+        return asset
 
     def _compute_target_gaze_px(self):
         # Raw measurements from tracker/state
