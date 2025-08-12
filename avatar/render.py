@@ -136,7 +136,17 @@ class Renderer:
         v_code = "+" if v >= v_hi else "-" if v <= v_lo else "0"
         a_code = "+" if a >= a_hi else "-" if a <= a_lo else "0"
         name = f"{label}_v{v_code}_a{a_code}"
-        return assets.get(name) or assets.get(label) or assets.get("neutral")
+
+        asset = assets.get(name)
+
+        # Many asset sets omit v0 variants. If no exact match is found, fall back
+        # to the closest available asset based on the sign of the valence so that
+        # high arousal values still trigger an expression change.
+        if asset is None and v_code == "0" and a_code != "0":
+            fallback_v = "+" if v >= 0.0 else "-"
+            asset = assets.get(f"{label}_v{fallback_v}_a{a_code}")
+
+        return asset or assets.get(label) or assets.get("neutral")
 
     def _compute_target_gaze_px(self):
         # Raw measurements from tracker/state
