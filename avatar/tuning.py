@@ -11,6 +11,7 @@ class Tuning:
     asset_black_threshold: int = 10
     asset_trim_margin_px: int = 0
     game_window_xy_dim: Optional[Tuple[int, int]] = None
+    mask_output: bool = False
     gaze_pd_kp: float = 0.22
     gaze_max_step_px: float = 14.0
     gaze_limit_px_left: int = 40
