@@ -8,6 +8,8 @@ class Tuning:
     eyes_max_w_scale: float = 1.0/3.0
     mouth_max_h_scale: float = 0.60
     mouth_max_y_scale: float = 0.16
+    asset_black_threshold: int = 10
+    asset_trim_margin_px: int = 0
     game_window_xy_dim: Optional[Tuple[int, int]] = None
     gaze_pd_kp: float = 0.22
     gaze_max_step_px: float = 14.0

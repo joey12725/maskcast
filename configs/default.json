@@ -32,6 +32,8 @@
     "eyes_max_w_scale": 0.3333333333333333,
     "mouth_max_h_scale": 0.6,
     "mouth_max_y_scale": 0.16,
+    "asset_black_threshold": 10,
+    "asset_trim_margin_px": 0,
     "game_window_xy_dim": null,
     "gaze_pd_kp": 0.22,
     "gaze_max_step_px": 14.0,
