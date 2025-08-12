@@ -55,7 +55,9 @@ class Renderer:
             return out
         for f in p.glob("*.png"):
             try:
-                out[f.stem.lower()] = pygame.image.load(str(f)).convert_alpha()  # type: ignore
+                surf = pygame.image.load(str(f)).convert_alpha()  # type: ignore
+                surf = self._remove_black_and_crop(surf)
+                out[f.stem.lower()] = surf
             except Exception as e:
                 self.log.warning("Failed to load %s: %s", f, e)
         self.log.info("Loaded %d assets from %s", len(out), p)
@@ -83,6 +85,32 @@ class Renderer:
         scale = min(max_w / max(1, ow), max_h / max(1, oh))
         tw, th = max(1, int(round(ow * scale))), max(1, int(round(oh * scale)))
         return pygame.transform.smoothscale(surf, (tw, th))  # type: ignore
+
+    def _remove_black_and_crop(self, surf):
+        thresh = getattr(self.tuning, "asset_black_threshold", 10)
+        margin = getattr(self.tuning, "asset_trim_margin_px", 0)
+        rgb = pygame.surfarray.pixels3d(surf)
+        alpha = pygame.surfarray.pixels_alpha(surf)
+        mask = (
+            (rgb[:, :, 0] <= thresh)
+            & (rgb[:, :, 1] <= thresh)
+            & (rgb[:, :, 2] <= thresh)
+        )
+        alpha[mask] = 0
+        del rgb, alpha
+        a = pygame.surfarray.array_alpha(surf)
+        nz = np.argwhere(a > 0)
+        if nz.size == 0:
+            return surf
+        x0, y0 = nz.min(axis=0)
+        x1, y1 = nz.max(axis=0) + 1
+        if margin > 0:
+            x0 = max(0, x0 - margin)
+            y0 = max(0, y0 - margin)
+            x1 = min(a.shape[0], x1 + margin)
+            y1 = min(a.shape[1], y1 + margin)
+        rect = pygame.Rect(int(x0), int(y0), int(x1 - x0), int(y1 - y0))
+        return surf.subsurface(rect).copy()
 
     def _build_scaled_assets(self):
         screen_w, screen_h = self.window_w, self.window_h
