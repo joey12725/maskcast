@@ -4,10 +4,15 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 from queue import Queue, Full
 
-from aiohttp import web
-from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
-from aiortc.contrib.media import MediaRelay
-import av
+try:
+    from aiohttp import web
+    from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
+    from aiortc.contrib.media import MediaRelay
+    import av
+except Exception as e:  # pragma: no cover - import guard
+    raise ImportError(
+        "Remote control requires optional dependencies 'aiohttp', 'aiortc' and 'av'."
+    ) from e
 
 
 class OutgoingVideoTrack(VideoStreamTrack):
