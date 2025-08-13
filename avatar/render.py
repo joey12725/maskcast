@@ -355,7 +355,7 @@ class Renderer:
             if self.frame_cb is not None:
                 try:
                     arr = pygame.surfarray.array3d(self.screen)
-                    frame = np.transpose(arr, (1, 0, 2))
+                    frame = np.transpose(arr, (1, 0, 2)).copy()
                     self.frame_cb(frame)
                 except Exception:
                     pass
