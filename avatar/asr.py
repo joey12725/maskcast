@@ -2,11 +2,12 @@ from __future__ import annotations
 import threading, time, logging
 from collections import deque
 from typing import Optional
+from queue import Queue
 from .optional_deps import sd, WhisperModel, np, torch
-from .utils import now
+from .utils import now, pin_to_core
 
 class WhisperASR(threading.Thread):
-    def __init__(self, model_name: str, log: logging.Logger, device_preference: str = "auto"):
+    def __init__(self, model_name: str, log: logging.Logger, device_preference: str = "auto", pcm_queue: Optional[Queue] = None):
         super().__init__(daemon=True, name="ASR-Whisper")
         self.log = log.getChild("ASR")
         self.model_name = model_name
@@ -15,7 +16,8 @@ class WhisperASR(threading.Thread):
         self.last_rms_dbfs = -120.0
         self.window_text_value = ""
         self.device_preference = device_preference
-        self.available = (sd is not None and WhisperModel is not None and np is not None)
+        self.pcm_queue = pcm_queue
+        self.available = (WhisperModel is not None and np is not None and (sd is not None or self.pcm_queue is not None))
 
     def window_text(self) -> str:
         return self.window_text_value
@@ -26,6 +28,7 @@ class WhisperASR(threading.Thread):
         return "cuda" if torch is not None and hasattr(torch, "cuda") and torch.cuda.is_available() else "cpu"
 
     def run(self):
+        pin_to_core(2, self.log)
         if not self.available:
             self.log.warning("Whisper not available (sounddevice/faster-whisper/numpy missing)")
             return
@@ -42,6 +45,33 @@ class WhisperASR(threading.Thread):
         block = int(sr * 0.5)
         ring = deque(maxlen=sr * 6)  # 6s window
         self.running = True
+
+        if self.pcm_queue is not None:
+            self.log.info("ASR queue mode started (%.1f kHz).", sr / 1000)
+            while self.running:
+                try:
+                    pcm = self.pcm_queue.get(timeout=0.1)
+                except Exception:
+                    continue
+                pcm = np.array(pcm, dtype=np.float32)
+                rms = float(np.sqrt(np.mean(np.square(pcm)))) if pcm.size else 0.0  # type: ignore
+                self.last_rms_dbfs = -120.0 if rms <= 1e-9 else 20.0 * np.log10(max(1e-3, rms) / 32768.0)  # type: ignore
+                ring.extend(pcm)
+                if len(ring) >= ring.maxlen and self.last_rms_dbfs > -55.0:
+                    wav = np.array(ring, dtype=np.float32) / 32768.0  # type: ignore
+                    t1 = now()
+                    try:
+                        segments, _ = model.transcribe(wav, language="en", vad_filter=True, word_timestamps=True)
+                        texts = [seg.text.strip() for seg in segments if (seg.end - seg.start) > 0.3]
+                        if texts:
+                            self.window_text_value = " ".join(texts)
+                    except Exception:
+                        pass
+                    self.last_latency_ms = (now() - t1) * 1000.0
+                    for _ in range(len(ring) // 3):
+                        ring.popleft()
+            self.log.info("ASR queue reader stopping…")
+            return
 
         def cb(indata, frames, time_info, status):
             if not self.running:

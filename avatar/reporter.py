@@ -26,6 +26,7 @@ class Reporter(threading.Thread):
             a = float(self.state.get("arousal", 0.0))
             pos_ms = float(self.state.get("pos_latency_ms", 0.0))
             emo_ms = float(self.state.get("emotion_latency_ms", 0.0))
+            rtc_ms = float(self.state.get("remote_latency_ms", 0.0))
             trans_ms = float(getattr(self.asr, "last_latency_ms", 0.0)) if self.asr else 0.0
             mic_db = float(getattr(self.asr, "last_rms_dbfs", -120.0)) if self.asr else -120.0
             window = str(getattr(self.asr, "window_text_value", "")) if self.asr else ""
@@ -44,7 +45,7 @@ class Reporter(threading.Thread):
                 f"position ({fc[0]}, {fc[1]}), emotion: {emo}, valence: {v:.2f}, arousal: {a:.2f}, "
                 f"{'face detected' if has_face else 'no face detected'}, "
                 f"current transcription window: \"{window}\", "
-                f"emotion latency: {emo_ms:.0f}ms, pos latency: {pos_ms:.0f}ms, transcription latency: {trans_ms:.0f}ms, "
+                f"emotion latency: {emo_ms:.0f}ms, pos latency: {pos_ms:.0f}ms, rtc latency: {rtc_ms:.0f}ms, transcription latency: {trans_ms:.0f}ms, "
                 f"mic level: {mic_db:.1f} dBFS {'[OK]' if mic_db > -55 else '[low]'}"
             )
 
@@ -53,7 +54,7 @@ class Reporter(threading.Thread):
                     self.q.put_nowait({
                         "ts": now(),
                         "valence": v, "arousal": a,
-                        "lat_pos": pos_ms, "lat_emo": emo_ms, "lat_asr": trans_ms,
+                        "lat_pos": pos_ms, "lat_emo": emo_ms, "lat_asr": trans_ms, "lat_rtc": rtc_ms,
                         "nx": float(nx), "ny": float(ny),
                         "probs": probs,
                         "text": window,

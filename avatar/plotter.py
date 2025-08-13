@@ -20,6 +20,7 @@ def plotter_process(q, labels: List[str], seconds: int, hz: float, start_evt, st
     lat_pos = _deque(maxlen=max_pts)
     lat_emo = _deque(maxlen=max_pts)
     lat_asr = _deque(maxlen=max_pts)
+    lat_rtc = _deque(maxlen=max_pts)
     nx = _deque(maxlen=max_pts)
     ny = _deque(maxlen=max_pts)
     prob_hist: Dict[str, _deque] = {lb: _deque(maxlen=max_pts) for lb in labels}
@@ -40,6 +41,7 @@ def plotter_process(q, labels: List[str], seconds: int, hz: float, start_evt, st
     (l_lp,) = ax_lat.plot([], [], label='pos')
     (l_le,) = ax_lat.plot([], [], label='emo')
     (l_la,) = ax_lat.plot([], [], label='asr')
+    (l_lr,) = ax_lat.plot([], [], label='rtc')
     ax_lat.legend(loc='upper left')
 
     l_probs = {lb: ax_prob.plot([], [], label=lb)[0] for lb in labels}
@@ -63,6 +65,7 @@ def plotter_process(q, labels: List[str], seconds: int, hz: float, start_evt, st
             lat_pos.append(float(m.get("lat_pos", 0.0)))
             lat_emo.append(float(m.get("lat_emo", 0.0)))
             lat_asr.append(float(m.get("lat_asr", 0.0)))
+            lat_rtc.append(float(m.get("lat_rtc", 0.0)))
             nx.append(float(m.get("nx", 0.0)))
             ny.append(float(m.get("ny", 0.0)))
             probs = m.get("probs", {})
@@ -86,7 +89,7 @@ def plotter_process(q, labels: List[str], seconds: int, hz: float, start_evt, st
         xs = _np.arange(len(t))
         l_v.set_data(xs, list(val)); ax_v.set_xlim(max(0, len(xs)-max_pts), len(xs)+1)
         l_a.set_data(xs, list(aro)); ax_a.set_xlim(max(0, len(xs)-max_pts), len(xs)+1)
-        l_lp.set_data(xs, list(lat_pos)); l_le.set_data(xs, list(lat_emo)); l_la.set_data(xs, list(lat_asr))
+        l_lp.set_data(xs, list(lat_pos)); l_le.set_data(xs, list(lat_emo)); l_la.set_data(xs, list(lat_asr)); l_lr.set_data(xs, list(lat_rtc))
         ax_lat.relim(); ax_lat.autoscale_view(); ax_lat.set_xlim(max(0, len(xs)-max_pts), len(xs)+1)
         for lb, line in l_probs.items():
             line.set_data(xs, list(prob_hist[lb]))
