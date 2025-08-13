@@ -31,7 +31,7 @@ A lightweight desktop avatar that tracks your webcam, classifies your expression
 
 ## Remote client
 
-The repo includes a minimal browser client in `remote.html`. When the remote server is enabled, browse to `http://<server>:8080/` or open `remote.html` directly. The page captures your webcam and microphone, sends them to the server and displays the rendered avatar stream alongside the local preview.
+The repo includes a minimal browser client in `remote.html`. When the remote server is enabled, browse to `http://<server>:8080/` or open `remote.html` directly. When opened from the filesystem it defaults to connecting to `http://localhost:8080` or you can specify another server via a query parameter, e.g. `remote.html?server=http://<server>:8080`. The page captures your webcam and microphone, sends them to the server and displays the rendered avatar stream alongside the local preview.
 
 Enable the remote server by setting the `remote` block in the config:
 ```json

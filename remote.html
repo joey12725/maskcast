@@ -26,7 +26,13 @@ async function init(){
   };
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
-  const resp = await fetch('/offer', {method:'POST', headers:{'Content-Type':'application/sdp'}, body: offer.sdp});
+  const params = new URLSearchParams(window.location.search);
+  let server = params.get('server');
+  if (!server) {
+    server = location.protocol === 'file:' ? 'http://localhost:8080' : '';
+  }
+  server = server.replace(/\/$/, '');
+  const resp = await fetch(`${server}/offer`, {method:'POST', headers:{'Content-Type':'application/sdp'}, body: offer.sdp});
   const answer = await resp.text();
   await pc.setRemoteDescription({type:'answer', sdp:answer});
 }
