@@ -2,15 +2,16 @@ from __future__ import annotations
 import threading, logging, time
 from collections import deque
 from typing import Optional, Tuple, Dict, Any
+from queue import Queue
 from .optional_deps import cv2
 from .detectors import FaceDetector
 from .emotions import EmotionEngine
 from .tuning import Tuning, canon
-from .utils import now
+from .utils import now, pin_to_core
 
 class VideoWorker(threading.Thread):
     def __init__(self, cam_index: int, tuning: Tuning, state: Dict[str, Any], log: logging.Logger,
-                 detector_mode: str, emotion_backend: str, mirror: bool):
+                 detector_mode: str, emotion_backend: str, mirror: bool, frame_queue: Optional[Queue] = None):
         super().__init__(daemon=True, name="Video")
         self.cam_index = cam_index
         self.tuning = tuning
@@ -23,25 +24,35 @@ class VideoWorker(threading.Thread):
         self._prev_norm = (0.0, 0.0)
         self._prev_ts = now()
         self.mirror = mirror
+        self.frame_queue = frame_queue
 
     def stop(self):
         self.stop_flag = True
 
     def run(self):
-        if cv2 is None:
-            raise RuntimeError("OpenCV not installed")
-        self.cap = cv2.VideoCapture(self.cam_index, cv2.CAP_ANY)
-        if not self.cap.isOpened():
-            raise RuntimeError(f"Cannot open camera {self.cam_index}")
-        self.log.info("Video capture opened (index=%d)", self.cam_index)
+        pin_to_core(1, self.log)
+        if self.frame_queue is None:
+            if cv2 is None:
+                raise RuntimeError("OpenCV not installed")
+            self.cap = cv2.VideoCapture(self.cam_index, cv2.CAP_ANY)
+            if not self.cap.isOpened():
+                raise RuntimeError(f"Cannot open camera {self.cam_index}")
+            self.log.info("Video capture opened (index=%d)", self.cam_index)
 
         fps_t0, frames = now(), 0
         while not self.stop_flag:
             pos_t0 = now()
-            ok, bgr = self.cap.read()
-            if not ok or bgr is None:
-                continue
-            rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+            if self.frame_queue is None:
+                ok, bgr = self.cap.read()
+                if not ok or bgr is None:
+                    continue
+                rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+            else:
+                try:
+                    item = self.frame_queue.get(timeout=0.5)
+                except Exception:
+                    continue
+                rgb = item[0] if isinstance(item, tuple) else item
             H, W = rgb.shape[:2]
             self.state["frame_size"] = (W, H)
 
@@ -96,8 +107,9 @@ class VideoWorker(threading.Thread):
                 self.log.info("~%.1f FPS | face=%s | W×H=%s", fps, "yes" if self.state.get("has_face") else "no", self.state.get("frame_size"))
                 fps_t0, frames = now(), 0
 
-        self.cap.release()
-        self.log.info("Video capture closed.")
+        if self.cap is not None:
+            self.cap.release()
+            self.log.info("Video capture closed.")
 
     @staticmethod
     def _ema_probs(old: dict, new: dict, alpha: float) -> dict:
