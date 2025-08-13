@@ -1,6 +1,6 @@
 from __future__ import annotations
 import multiprocessing as mp
-import logging, time
+import logging, time, queue
 from pathlib import Path
 from typing import Dict, Any, Tuple
 
@@ -13,6 +13,7 @@ from .asr import WhisperASR
 from .render import Renderer
 from .reporter import Reporter
 from .plotter import plotter_process
+from .remote import WebRTCServer
 
 def run(config: Dict[str, Any]) -> None:
     # Logging
@@ -42,6 +43,7 @@ def run(config: Dict[str, Any]) -> None:
         "arousal": 0.0,
         "emotion_latency_ms": 0.0,
         "pos_latency_ms": 0.0,
+        "remote_latency_ms": 0.0,
         "frame_size": None,
         "last_face_ts": 0.0,
         "flash_label": None,
@@ -52,18 +54,27 @@ def run(config: Dict[str, Any]) -> None:
     emotions_present, keywords = list_emotions_present(eyes_dir)
     print(f"[Setup] Eyes found; emotions: {emotions_present or ['<none>']}; keywords: {keywords or ['<none>']}")
 
-    # Video worker
+    remote_cfg = config.get("remote", {})
+    remote_srv = None
+    frame_q = None
+    audio_q = None
+    if remote_cfg.get("enabled", False):
+        frame_q = queue.Queue(maxsize=1)
+        audio_q = queue.Queue(maxsize=50)
+        remote_srv = WebRTCServer(frame_q, audio_q, queue.Queue(maxsize=1), state, host=remote_cfg.get("host", "0.0.0.0"), port=int(remote_cfg.get("port", 8080)))
+        remote_srv.start()
+
     cam_index = int(config.get("camera", 0))
     detector_mode = config["backends"]["detector"]
     emotion_backend = config["backends"]["emotion"]
     mirror = bool(config["window"].get("mirror", True))
-    vid = VideoWorker(cam_index, tuning, state, log, detector_mode, emotion_backend, mirror=mirror)
+    vid = VideoWorker(cam_index, tuning, state, log, detector_mode, emotion_backend, mirror=mirror, frame_queue=frame_q)
     vid.start()
 
     # ASR
     asr = None
     if config["asr"].get("enabled", True) and config["asr"]["engine"] == "whisper":
-        asr = WhisperASR(config["asr"].get("whisper_model", "large-v3"), log, device_preference=config["asr"].get("device","auto"))
+        asr = WhisperASR(config["asr"].get("whisper_model", "large-v3"), log, device_preference=config["asr"].get("device","auto"), pcm_queue=audio_q)
         asr.start()
 
     # Window size
@@ -84,7 +95,7 @@ def run(config: Dict[str, Any]) -> None:
     log.info("Window size: %dx%d", w, h)
 
     # Renderer (pygame in main thread)
-    renderer = Renderer((w, h), tuning, state, log, eyes_dir, mouths_dir)
+    renderer = Renderer((w, h), tuning, state, log, eyes_dir, mouths_dir, frame_cb=(remote_srv.send_frame if remote_srv else None))
 
     # Plot process + reporter
     plot_q = None
@@ -124,6 +135,7 @@ def run(config: Dict[str, Any]) -> None:
         if reporter: reporter.stop()
         if vid: vid.stop()
         if asr: asr.stop()
+        if remote_srv: remote_srv.stop()
 
         # Ask plotter proc to exit
         if plot_stop_evt is not None:

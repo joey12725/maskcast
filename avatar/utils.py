@@ -1,11 +1,22 @@
 from __future__ import annotations
-import time, logging
+import time, logging, os, threading
 from typing import Optional, Tuple
 from pathlib import Path
 from .optional_deps import cv2
 
 def now() -> float:
     return time.time()
+
+def pin_to_core(core: int, log: logging.Logger) -> None:
+    try:
+        cores = sorted(os.sched_getaffinity(0))
+        if not cores:
+            return
+        core_id = cores[min(core, len(cores) - 1)]
+        os.sched_setaffinity(threading.get_native_id(), {core_id})
+        log.info("Pinned to CPU %d", core_id)
+    except Exception:
+        pass
 
 def parse_window_arg(s: Optional[str]) -> Optional[Tuple[int, int]]:
     if not s: return None

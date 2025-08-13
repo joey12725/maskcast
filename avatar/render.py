@@ -1,7 +1,7 @@
 from __future__ import annotations
 import logging
 from pathlib import Path
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Callable, Optional
 from .optional_deps import pygame, np
 from .tuning import Tuning, EMOTION_TO_ENERGY, canon
 from .utils import now
@@ -9,7 +9,7 @@ from .utils import now
 
 class Renderer:
     def __init__(self, window_wh: Tuple[int, int], tuning: Tuning, state: Dict[str, Any], log: logging.Logger,
-                 eyes_dir: Path, mouths_dir: Path):
+                 eyes_dir: Path, mouths_dir: Path, frame_cb: Optional[Callable[["np.ndarray"], None]] = None):
         if pygame is None:
             raise RuntimeError("pygame not installed")
         if np is None:
@@ -23,6 +23,7 @@ class Renderer:
         self.clock = pygame.time.Clock()
         self.state = state
         self.tuning = tuning
+        self.frame_cb = frame_cb
 
         self._eyes_raw = self._load_folder(eyes_dir)
         self._mouths_raw = self._load_folder(mouths_dir)
@@ -350,6 +351,14 @@ class Renderer:
                     self._draw_centered(self._cur_mouth, (mouth_cx, mouth_cy))
 
             pygame.display.flip()  # type: ignore
+
+            if self.frame_cb is not None:
+                try:
+                    arr = pygame.surfarray.array3d(self.screen)
+                    frame = np.transpose(arr, (1, 0, 2))
+                    self.frame_cb(frame)
+                except Exception:
+                    pass
 
         pygame.quit()             # type: ignore
         self.log.info("Renderer quit.")
