@@ -13,7 +13,6 @@ from .asr import WhisperASR
 from .render import Renderer
 from .reporter import Reporter
 from .plotter import plotter_process
-from .remote import WebRTCServer
 
 def run(config: Dict[str, Any]) -> None:
     # Logging
@@ -59,10 +58,22 @@ def run(config: Dict[str, Any]) -> None:
     frame_q = None
     audio_q = None
     if remote_cfg.get("enabled", False):
-        frame_q = queue.Queue(maxsize=1)
-        audio_q = queue.Queue(maxsize=50)
-        remote_srv = WebRTCServer(frame_q, audio_q, queue.Queue(maxsize=1), state, host=remote_cfg.get("host", "0.0.0.0"), port=int(remote_cfg.get("port", 8080)))
-        remote_srv.start()
+        try:
+            from .remote import WebRTCServer  # type: ignore
+        except Exception as e:
+            log.error("Remote server requested but not available: %s", e)
+        else:
+            frame_q = queue.Queue(maxsize=1)
+            audio_q = queue.Queue(maxsize=50)
+            remote_srv = WebRTCServer(
+                frame_q,
+                audio_q,
+                queue.Queue(maxsize=1),
+                state,
+                host=remote_cfg.get("host", "0.0.0.0"),
+                port=int(remote_cfg.get("port", 8080)),
+            )
+            remote_srv.start()
 
     cam_index = int(config.get("camera", 0))
     detector_mode = config["backends"]["detector"]
