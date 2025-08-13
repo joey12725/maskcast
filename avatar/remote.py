@@ -25,8 +25,9 @@ class OutgoingVideoTrack(VideoStreamTrack):
         loop = asyncio.get_running_loop()
         frame = await loop.run_in_executor(None, self.q.get)
         vf = av.VideoFrame.from_ndarray(frame, format="rgb24")
-        vf.pts = None
-        vf.time_base = None
+        pts, time_base = await self.next_timestamp()
+        vf.pts = pts
+        vf.time_base = time_base
         return vf
 
 
@@ -161,16 +162,16 @@ class WebRTCServer(threading.Thread):
         resampler = av.audio.resampler.AudioResampler(format="s16", layout="mono", rate=16000)
         while True:
             frame = await track.recv()
-            frame = resampler.resample(frame)
-            pcm = frame.to_ndarray().flatten()
-            try:
-                self.audio_queue.put_nowait(pcm)
-            except Full:
-                try:
-                    _ = self.audio_queue.get_nowait()
-                except Exception:
-                    pass
+            for out in resampler.resample(frame):
+                pcm = out.to_ndarray().flatten()
                 try:
                     self.audio_queue.put_nowait(pcm)
-                except Exception:
-                    pass
+                except Full:
+                    try:
+                        _ = self.audio_queue.get_nowait()
+                    except Exception:
+                        pass
+                    try:
+                        self.audio_queue.put_nowait(pcm)
+                    except Exception:
+                        pass
