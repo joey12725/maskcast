@@ -66,6 +66,7 @@ class WebRTCServer(threading.Thread):
         app = web.Application()
         app.router.add_get("/", self.index)
         app.router.add_post("/offer", self.offer)
+        app.router.add_options("/offer", self.preflight)
         runner = web.AppRunner(app)
         await runner.setup()
         site = web.TCPSite(runner, self.host, self.port)
@@ -79,7 +80,9 @@ class WebRTCServer(threading.Thread):
 
     async def index(self, request):
         html = (Path(__file__).resolve().parent.parent / "remote.html").read_text()
-        return web.Response(content_type="text/html", text=html)
+        return web.Response(
+            content_type="text/html", text=html, headers={"Access-Control-Allow-Origin": "*"}
+        )
 
     async def offer(self, request):
         sdp = await request.text()
@@ -124,7 +127,19 @@ class WebRTCServer(threading.Thread):
         await pc.setRemoteDescription(offer)
         answer = await pc.createAnswer()
         await pc.setLocalDescription(answer)
-        return web.Response(content_type="application/sdp", text=pc.localDescription.sdp)
+        return web.Response(
+            content_type="application/sdp",
+            text=pc.localDescription.sdp,
+            headers={"Access-Control-Allow-Origin": "*"},
+        )
+
+    async def preflight(self, request):
+        headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+        }
+        return web.Response(status=204, headers=headers)
 
     async def _handle_video(self, track):
         while True:
