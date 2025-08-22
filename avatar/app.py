@@ -8,6 +8,7 @@ from .logging_utils import setup_logging, env_dump, _add_cuda_search_paths_windo
 from .tuning import Tuning, CANONICAL
 from .assets import list_emotions_present
 from .utils import parse_window_arg, autodetect_camera_size
+from .optional_deps import cv2
 from .video import VideoWorker
 from .asr import WhisperASR
 from .render import Renderer
@@ -79,6 +80,15 @@ def run(config: Dict[str, Any]) -> None:
     detector_mode = config["backends"]["detector"]
     emotion_backend = config["backends"]["emotion"]
     mirror = bool(config["window"].get("mirror", True))
+    # macOS camera permission preflight: open and immediately close capture once in main thread
+    if cv2 is not None:
+        try:
+            cap_test = cv2.VideoCapture(cam_index, cv2.CAP_ANY)
+            _ = cap_test.isOpened()
+            cap_test.release()
+        except Exception:
+            pass
+
     vid = VideoWorker(cam_index, tuning, state, log, detector_mode, emotion_backend, mirror=mirror, frame_queue=frame_q)
     vid.start()
 
@@ -88,13 +98,21 @@ def run(config: Dict[str, Any]) -> None:
         asr = WhisperASR(config["asr"].get("whisper_model", "large-v3"), log, device_preference=config["asr"].get("device","auto"), pcm_queue=audio_q)
         asr.start()
 
-    # Window size
+    # Window size (cap to 720x1080)
     w, h = (640, 480)
     for _ in range(40):  # ~2s
         if state.get("frame_size"):
             w, h = state["frame_size"]
             break
         time.sleep(0.05)
+    # Apply cap preserving aspect ratio
+    try:
+        if w > 720 or h > 1080:
+            scale = min(720 / max(1, w), 1080 / max(1, h))
+            w = max(1, int(round(w * scale)))
+            h = max(1, int(round(h * scale)))
+    except Exception:
+        pass
 
     size_cfg = config["window"].get("size", "auto")
     if isinstance(size_cfg, str):
@@ -103,6 +121,14 @@ def run(config: Dict[str, Any]) -> None:
             if maybe: w, h = maybe
     elif isinstance(size_cfg, (list, tuple)) and len(size_cfg) == 2:
         w, h = int(size_cfg[0]), int(size_cfg[1])
+    # Enforce cap after config overrides
+    try:
+        if w > 720 or h > 1080:
+            scale = min(720 / max(1, w), 1080 / max(1, h))
+            w = max(1, int(round(w * scale)))
+            h = max(1, int(round(h * scale)))
+    except Exception:
+        pass
     log.info("Window size: %dx%d", w, h)
 
     # Renderer (pygame in main thread)

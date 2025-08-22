@@ -4,6 +4,7 @@ from collections import deque
 from typing import Optional
 from queue import Queue
 from .optional_deps import sd, WhisperModel, np, torch
+from .hw import faster_whisper_device_and_compute
 from .utils import now, pin_to_core
 
 class WhisperASR(threading.Thread):
@@ -22,18 +23,17 @@ class WhisperASR(threading.Thread):
     def window_text(self) -> str:
         return self.window_text_value
 
-    def _pick_device(self):
+    def _pick_device_and_compute(self):
         if self.device_preference == "cpu":
-            return "cpu"
-        return "cuda" if torch is not None and hasattr(torch, "cuda") and torch.cuda.is_available() else "cpu"
+            return "cpu", "int8"
+        return faster_whisper_device_and_compute("auto")
 
     def run(self):
         pin_to_core(2, self.log)
         if not self.available:
             self.log.warning("Whisper not available (sounddevice/faster-whisper/numpy missing)")
             return
-        device = self._pick_device()
-        compute_type = "float16" if device == "cuda" else "int8"
+        device, compute_type = self._pick_device_and_compute()
         try:
             model = WhisperModel(self.model_name, device=device, compute_type=compute_type)  # type: ignore
             self.log.info("faster-whisper model=%s on %s (%s)", self.model_name, device.upper(), compute_type)

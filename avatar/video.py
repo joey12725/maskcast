@@ -53,7 +53,17 @@ class VideoWorker(threading.Thread):
                 except Exception:
                     continue
                 rgb = item[0] if isinstance(item, tuple) else item
+            # Cap resolution to fit within 720x1080 while preserving aspect ratio
             H, W = rgb.shape[:2]
+            if (W > 720 or H > 1080) and cv2 is not None:
+                scale = min(720 / max(1, W), 1080 / max(1, H))
+                new_w = max(1, int(round(W * scale)))
+                new_h = max(1, int(round(H * scale)))
+                try:
+                    rgb = cv2.resize(rgb, (new_w, new_h), interpolation=cv2.INTER_AREA)
+                    H, W = rgb.shape[:2]
+                except Exception:
+                    pass
             self.state["frame_size"] = (W, H)
 
             faces = self.detector.detect(rgb)
@@ -79,11 +89,31 @@ class VideoWorker(threading.Thread):
                     probs = {canon(k): float(vv) for k, vv in probs.items()}
                     self.state["emotion_probs"] = self._ema_probs(self.state.get("emotion_probs", {}), probs, self.tuning.emotion_smooth_alpha)
                     final_label = canon(max(self.state["emotion_probs"].items(), key=lambda kv: kv[1])[0])
+                    # Fallback VA: if recognizer didn't provide VA and we have non-trivial probs, derive from probs
+                    va_fallback = False
+                    if abs(float(v)) < 1e-6 and abs(float(a)) < 1e-6:
+                        nonzero_probs = [p for p in self.state["emotion_probs"].values() if p > 1e-3]
+                        if len(nonzero_probs) >= 2:
+                            happy_p = float(self.state["emotion_probs"].get("happy", 0.0))
+                            sad_p = float(self.state["emotion_probs"].get("sad", 0.0))
+                            v = happy_p - sad_p
+                            # Relative certainty: top-1 minus top-2 probability
+                            try:
+                                sorted_probs = sorted(self.state["emotion_probs"].values(), reverse=True)
+                                a = float(sorted_probs[0] - (sorted_probs[1] if len(sorted_probs) > 1 else 0.0))
+                            except Exception:
+                                a = 0.0
+                            va_fallback = True
+                        else:
+                            va_fallback = False
+                    else:
+                        va_fallback = False
                     self.state.update({
                         "emotion_label": final_label,
                         "valence": float(v), "arousal": float(a),
                         "last_emo_ts": now(),
-                        "emotion_latency_ms": float(emo_latency_ms)
+                        "emotion_latency_ms": float(emo_latency_ms),
+                        "va_fallback_active": bool(va_fallback),
                     })
 
                 self.state.update({

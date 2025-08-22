@@ -13,11 +13,15 @@ A lightweight desktop avatar that tracks your webcam, classifies your expression
 ## Requirements
 
 - Python 3.10+
-- Recommended Python packages:
+- One-time setup using the cross-platform installer:
   ```bash
-  pip install aiohttp aiortc av numpy opencv-python pygame sounddevice faster-whisper torch emotiefflib onnxruntime insightface
+  python scripts/install.py
   ```
-  GPU acceleration is used automatically if CUDA is available.
+  The installer auto-detects your OS/arch and installs the right wheels:
+  - macOS Apple Silicon (M1/M2/M3/M4): Torch with MPS, ONNX Runtime (CoreML/MPS if available)
+  - Windows (including AMD/Intel/NVIDIA GPUs): ONNX Runtime DirectML; Torch CPU or CUDA if present
+  - Linux: Torch CPU/CUDA if available; ONNX Runtime CPU/CUDA/ROCm depending on environment
+  It also installs optional tools like `ffmpeg`/`portaudio` if your package manager is available.
 
 ## Running the server
 
@@ -57,5 +61,9 @@ remote.html    Browser client for remote streaming
 
 - Custom eye and mouth images can be added to the respective folders to extend available expressions.
 - ASR, plotting and remote streaming can be toggled on/off in the configuration.
+- Backend auto-detection:
+  - Whisper (faster-whisper) selects device/precision automatically (CUDA / Metal / CPU)
+  - Emotions use Torch with auto device (CUDA / MPS / CPU)
+  - InsightFace selects the best available ONNX Runtime provider (CUDA / DirectML / CoreML / MPS / CPU)
 - The application shuts down cleanly with `Ctrl+C`.
 

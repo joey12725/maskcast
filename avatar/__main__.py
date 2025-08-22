@@ -7,6 +7,7 @@ from .app import run as run_app
 os.environ.setdefault("TQDM_DISABLE", "1")
 os.environ.setdefault("TQDM_NOPOS", "1")
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
+os.environ.setdefault("OPENCV_AVFOUNDATION_SKIP_AUTH", "1")
 
 def main():
     ap = argparse.ArgumentParser(description="Desktop Avatar — modular app")

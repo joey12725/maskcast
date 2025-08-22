@@ -5,6 +5,24 @@ from .optional_deps import torch, EmotiEffLibRecognizerBase, EmotiEffLibRecogniz
 from .tuning import CANONICAL, canon
 from .utils import now
 
+
+def pick_device() -> str:
+    """Cross-platform device detection for Apple Silicon, NVIDIA GPU, and ROG Ally X."""
+    if torch is None:
+        return "cpu"
+    
+    # Check for CUDA first (NVIDIA GPUs on Windows/Linux including ROG Ally X)
+    if torch.cuda.is_available():
+        return "cuda"
+    
+    # Check for MPS (Apple Silicon M1/M2/M3/M4)
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
+    
+    # Fallback to CPU
+    return "cpu"
+
+
 class EmotionEngine:
     def __init__(self, backend: str, log: logging.Logger):
         self.log = log.getChild("Emotion")
@@ -19,9 +37,31 @@ class EmotionEngine:
             self.log.warning("EmotiEffLib Torch not available; neutral fallback.")
             return
         try:
-            dev = "cuda" if (torch is not None and torch.cuda.is_available()) else "cpu"
+            dev = pick_device()
             self.device = dev
-            self.recognizer = EmotiEffLibRecognizerTorch("enet_b0_8_va_mtl", device=dev)
+            
+            # Handle PyTorch 2.6+ weights_only issue for EmotiEffLib
+            if torch is not None:
+                # Import the required class and add it to safe globals
+                try:
+                    from timm.models.efficientnet import EfficientNet
+                    torch.serialization.add_safe_globals([EfficientNet])
+                except ImportError:
+                    pass  # Fall back to weights_only=False approach
+                
+                # Also patch torch.load as a fallback for any direct calls
+                _orig_torch_load = torch.load
+                def _patched_load(*args, **kwargs):
+                    if "weights_only" not in kwargs:
+                        kwargs["weights_only"] = False
+                    return _orig_torch_load(*args, **kwargs)
+                torch.load = _patched_load
+                try:
+                    self.recognizer = EmotiEffLibRecognizerTorch("enet_b0_8_va_mtl", device=dev)
+                finally:
+                    torch.load = _orig_torch_load
+            else:
+                self.recognizer = EmotiEffLibRecognizerTorch("enet_b0_8_va_mtl", device=dev)
             if hasattr(self.recognizer, "idx_to_emotion_class"):
                 raw = [self.recognizer.idx_to_emotion_class[i] for i in sorted(self.recognizer.idx_to_emotion_class.keys())]  # type: ignore
                 self.labels = sorted({canon(s) for s in raw if canon(s)})
@@ -63,5 +103,6 @@ class EmotionEngine:
             if not label:
                 label = "neutral"
             return label, probs, v, a, (now() - t0) * 1000.0
-        except Exception:
+        except Exception as e:
+            self.log.debug("Emotion prediction failed: %s", e)
             return "neutral", {"neutral": 1.0}, 0.0, 0.0, (now() - t0) * 1000.0

@@ -35,11 +35,16 @@ class Reporter(threading.Thread):
                 for kw in self.keywords:
                     aliases = KEYWORD_ALIASES.get(kw, [])
                     if any(a in window_low for a in aliases):
-                        self.state["flash_label"] = kw
-                        self.state["flash_until"] = now() + float(getattr(self.tuning, "keyword_flash_s", 0.0))
+                        current_label = self.state.get("flash_label")
+                        current_until = float(self.state.get("flash_until", 0.0))
+                        # Only (re)arm the flash if it's expired or switching to a new keyword
+                        if current_label != kw or now() > current_until:
+                            self.state["flash_label"] = kw
+                            self.state["flash_until"] = now() + float(getattr(self.tuning, "keyword_flash_s", 0.0))
                         break
             nx, ny = self.state.get("face_norm", (0.0, 0.0))
             probs = self.state.get("emotion_probs", {})
+            va_fallback = bool(self.state.get("va_fallback_active", False))
 
             print(
                 f"position ({fc[0]}, {fc[1]}), emotion: {emo}, valence: {v:.2f}, arousal: {a:.2f}, "
@@ -57,6 +62,7 @@ class Reporter(threading.Thread):
                         "lat_pos": pos_ms, "lat_emo": emo_ms, "lat_asr": trans_ms, "lat_rtc": rtc_ms,
                         "nx": float(nx), "ny": float(ny),
                         "probs": probs,
+                        "va_fallback": va_fallback,
                         "text": window,
                     })
                 except Exception:

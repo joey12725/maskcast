@@ -4,12 +4,18 @@ import time
 
 def plotter_process(q, labels: List[str], seconds: int, hz: float, start_evt, stop_evt):
     # Import Matplotlib *inside* the child; choose backend BEFORE pyplot import
-    import matplotlib
-    matplotlib.use("TkAgg")
-    import matplotlib.pyplot as plt
-    from matplotlib.animation import FuncAnimation
-    import numpy as _np
-    from collections import deque as _deque
+    try:
+        import matplotlib
+        matplotlib.use("TkAgg")
+        import matplotlib.pyplot as plt
+        from matplotlib.animation import FuncAnimation
+        import numpy as _np
+        from collections import deque as _deque
+    except ImportError as e:
+        print(f"Plotter disabled: missing dependency {e}")
+        if start_evt:
+            start_evt.set()
+        return
 
     labels = list(sorted(set(labels)))
     max_pts = int(seconds * hz)
@@ -50,6 +56,8 @@ def plotter_process(q, labels: List[str], seconds: int, hz: float, start_evt, st
     (l_fx,) = ax_fx.plot([], [])
     (l_fy,) = ax_fy.plot([], [])
 
+    va_fallback_flags = _deque(maxlen=max_pts)
+
     def drain_queue():
         drained = 0
         while True:
@@ -69,6 +77,7 @@ def plotter_process(q, labels: List[str], seconds: int, hz: float, start_evt, st
             nx.append(float(m.get("nx", 0.0)))
             ny.append(float(m.get("ny", 0.0)))
             probs = m.get("probs", {})
+            va_fallback_flags.append(bool(m.get("va_fallback", False)))
             for lb in labels:
                 prob_hist[lb].append(float(probs.get(lb, 0.0)))
             text = m.get("text", "")
@@ -96,6 +105,16 @@ def plotter_process(q, labels: List[str], seconds: int, hz: float, start_evt, st
         ax_prob.set_xlim(max(0, len(xs)-max_pts), len(xs)+1)
         l_fx.set_data(xs, list(nx)); ax_fx.set_xlim(max(0, len(xs)-max_pts), len(xs)+1)
         l_fy.set_data(xs, list(ny)); ax_fy.set_xlim(max(0, len(xs)-max_pts), len(xs)+1)
+        # Show fallback indicator in title if active in any of the last points
+        try:
+            if any(va_fallback_flags):
+                ax_v.set_title("Valence [fallback]")
+                ax_a.set_title("Arousal [fallback]")
+            else:
+                ax_v.set_title("Valence")
+                ax_a.set_title("Arousal")
+        except Exception:
+            pass
         ax_txt.clear(); ax_txt.axis('off'); ax_txt.text(0.0, 1.0, " ".join(txt), va='top', fontsize=9, wrap=True)
 
     anim = FuncAnimation(fig, update, interval=int(1000.0 / max(1.0, hz)), blit=False, cache_frame_data=False, repeat=True)
