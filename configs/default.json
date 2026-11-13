@@ -1,8 +1,8 @@
 {
   "camera": 0,
   "assets": {
-    "eyes": "eyes",
-    "mouths": "mouths"
+    "eyes": "assets/eyes",
+    "mouths": "assets/mouths"
   },
   "window": {
     "size": "auto",
@@ -15,18 +15,24 @@
   "asr": {
     "engine": "whisper",
     "enabled": true,
-    "whisper_model": "large-v3",
+    "whisper_model": "small.en",
     "device": "auto"
   },
   "plots": {
-    "enabled": true,
+    "enabled": false,
     "hz": 10.0,
     "seconds": 180
   },
   "remote": {
     "enabled": false,
-    "host": "0.0.0.0",
+    "host": "127.0.0.1",
     "port": 8080
+  },
+  "mask": {
+    "enabled": false,
+    "width": 45,
+    "height": 60,
+    "name_prefix": "Mask"
   },
   "logging": {
     "debug": false,
@@ -34,27 +40,18 @@
   },
   "tuning": {
     "min_face_conf": 0.6,
-    "eyes_max_w_scale": 0.3333333333333333,
-    "mouth_max_h_scale": 0.6,
-    "mouth_max_y_scale": 0.16,
+    "eyes_max_w_scale": 0.55,
+    "mouth_max_h_scale": 0.3,
+    "mouth_max_y_scale": 0.14,
     "asset_black_threshold": 10,
     "asset_trim_margin_px": 0,
-    "game_window_xy_dim": null,
-    "mask_output": false,
-    "gaze_pd_kp": 0.22,
-    "gaze_max_step_px": 14.0,
-    "gaze_limit_px_left": 40,
-    "gaze_limit_px_right": 40,
-    "gaze_limit_px_up": 28,
-    "gaze_limit_px_down": 32,
     "face_hold_s": 1.0,
     "return_to_center_s": 0.6,
     "emotion_hz": 2.0,
     "emotion_smooth_alpha": 0.35,
     "base_pos_x": 0.5,
-    "base_pos_y": 0.55,
-    "mouth_offset_y_scale": 0.24,
-    "transcript_max_words": 5,
+    "base_pos_y": 0.42,
+    "mouth_offset_y_scale": 0.27,
     "keyword_flash_s": 1.0,
     "asset_transition_s": 0.12,
     "valence_high_threshold": 0.5,
@@ -63,4 +60,3 @@
     "arousal_low_threshold": -0.5
   }
 }
-

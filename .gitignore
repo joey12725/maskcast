@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.cache/
+.DS_Store
+# local model downloads and recordings
+models/
+*.onnx
+*.pt
+*.pth
+recordings/

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>maskcast remote</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; min-height: 100vh; background: #0a0a0e; color: #c9c9d6;
+         font: 15px/1.4 system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; }
+  header { padding: 16px; text-align: center; }
+  h1 { margin: 0; font-size: 18px; color: #ff69b4; letter-spacing: .04em; }
+  #status { font-size: 13px; opacity: .8; }
+  main { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; padding: 0 16px 16px; }
+  figure { margin: 0; text-align: center; }
+  video { width: min(44vw, 480px); min-width: 280px; background: #000; border-radius: 10px; }
+  figcaption { font-size: 12px; opacity: .7; margin-top: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>maskcast</h1>
+  <div id="status">connecting…</div>
+</header>
+<main>
+  <figure><video id="local" autoplay playsinline muted></video><figcaption>your camera (sent to the server)</figcaption></figure>
+  <figure><video id="remote" autoplay playsinline></video><figcaption>rendered mask (streamed back)</figcaption></figure>
+</main>
+<script>
+const statusEl = document.getElementById('status');
+const setStatus = (s) => { statusEl.textContent = s; };
+
+async function init() {
+  const pc = new RTCPeerConnection();
+  const localVideo = document.getElementById('local');
+  const remoteVideo = document.getElementById('remote');
+  pc.ontrack = (ev) => { remoteVideo.srcObject = ev.streams[0] || new MediaStream([ev.track]); };
+  pc.onconnectionstatechange = () => setStatus(pc.connectionState);
+
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  localVideo.srcObject = stream;
+  stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+
+  // The server pings over a data channel; echoing lets it measure round-trip latency.
+  pc.ondatachannel = (ev) => {
+    const dc = ev.channel;
+    dc.onmessage = (msg) => {
+      if (typeof msg.data === 'string' && msg.data.startsWith('ping:')) dc.send('pong:' + msg.data.slice(5));
+    };
+  };
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  // aiortc does not do trickle ICE, so send the offer once candidates are gathered.
+  await new Promise((resolve) => {
+    if (pc.iceGatheringState === 'complete') return resolve();
+    const done = () => { if (pc.iceGatheringState === 'complete') resolve(); };
+    pc.addEventListener('icegatheringstatechange', done);
+    setTimeout(resolve, 2000);
+  });
+
+  // Served by maskcast: same origin. Opened from disk: localhost, or ?server=http://host:8080
+  const params = new URLSearchParams(window.location.search);
+  let server = params.get('server') || (location.protocol === 'file:' ? 'http://localhost:8080' : '');
+  server = server.replace(/\/$/, '');
+  try {
+    const resp = await fetch(`${server}/offer`, {
+      method: 'POST', headers: { 'Content-Type': 'application/sdp' }, body: pc.localDescription.sdp,
+    });
+    await pc.setRemoteDescription({ type: 'answer', sdp: await resp.text() });
+  } catch (err) {
+    console.error(err);
+    setStatus(`could not reach ${server || location.origin}/offer`);
+  }
+}
+init().catch((err) => { console.error(err); setStatus(err.message); });
+</script>
+</body>
+</html>

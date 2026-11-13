@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "maskcast"
+version = "1.0.0"
+description = "Real-time expression-driven anime face mask: webcam emotion tracking, speech keywords, WebRTC streaming and BLE LED mask output."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Joey Hersh" }]
+requires-python = ">=3.10"
+dependencies = ["numpy", "pygame>=2.1"]
+
+[project.optional-dependencies]
+vision = ["opencv-python", "onnxruntime", "insightface", "emotiefflib", "torch", "timm==0.9.16"]
+speech = ["faster-whisper", "sounddevice"]
+remote = ["aiohttp", "aiortc", "av"]
+mask = ["bleak", "pycryptodome"]
+plots = ["matplotlib"]
+art = ["pillow>=10.1"]
+dev = ["pytest", "ruff", "pillow>=10.1"]
+
+[project.scripts]
+maskcast = "maskcast.__main__:main"
+
+[tool.setuptools]
+packages = ["maskcast"]
+
+[tool.setuptools.package-data]
+maskcast = ["web/*.html"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]
+ignore = ["B008"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
